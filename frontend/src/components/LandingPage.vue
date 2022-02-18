@@ -7,13 +7,9 @@
       </button>
 
       <input v-model="sessionId" placeholder=""/>
-      <button @click="joinSession(this.sessionId)">
+      <button @click="joinSession(this.sessionId)" :disabled="!sessionId">
         Join session
       </button>
-    </div>
-
-    <div v-if="activeSession">
-      {{ this.sessionId }}
     </div>
 
     <div v-if="!userParticipating && activeSession">
@@ -25,6 +21,8 @@
     </div>
 
     <div v-if="userParticipating">
+      <p>Planing Poker Session: {{ this.sessionId }}</p>
+      <div>
       <button @click="clearVotes()">
         Clear votes
       </button>
@@ -32,10 +30,11 @@
       <button @click="showVotes()">
         Show votes
       </button>
+      </div>
 
       <li v-for="v in votes">
         <button @click="vote(v)">
-          {{ v }}
+          {{ v }} points
         </button>
       </li>
 
@@ -74,14 +73,14 @@ import axios from "axios";
   },
   methods: {
     // todo: leave session on window close
-    async startSession() {
+    startSession() {
       console.log('Starting new session for user');
 
       this.socket = io("http://localhost:3000")
 
       this.socket.on("connect", () => {
         console.log(`Created planning poker session`);
-        console.log(`socket id: ${this.socket.id}`);
+        console.log(`Socket id: ${this.socket.id}`);
 
         // register user or join exiting room
         let res
@@ -89,16 +88,16 @@ import axios from "axios";
           if (this.sessionId) {
             // join existing room
             console.log(`Join existing session: ${this.sessionId}`)
-            axios.post(`http://localhost:3000/session?sessionId=${this.sessionId}&socketId=${this.socket.id}`).then(() => {
-              console.log('set activeSession to true');
+            axios.post(`http://localhost:3000/session?sessionId=${this.sessionId}&socketId=${this.socket.id}&username=${this.username}`).then((response) => {
+              console.log('set activeSession to true', response);
               this.activeSession = true;
             }).catch((err) => {
               console.log(err);
             });
           } else {
             console.log(`Create new session`);
-            axios.post(`http://localhost:3000/session?socketId=${this.socket.id}`).then(() => {
-              console.log('set activeSession to true');
+            axios.post(`http://localhost:3000/session?socketId=${this.socket.id}`).then((response) => {
+              console.log('set activeSession to true', response);
               this.activeSession = true;
             }).catch((err) => {
               console.error(err);
@@ -150,8 +149,8 @@ import axios from "axios";
       this.users.push({name: this.username});
     },
     joinSession(sessionId: string) {
+      console.log('User joined session');
       this.startSession(sessionId);
-      this.userParticipating = true;
     },
     clearVotes() {
       console.log('clear votes');

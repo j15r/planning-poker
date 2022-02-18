@@ -30,6 +30,7 @@ app.get("/", (req, res) => {
 app.post("/session", (req, res) => {
     let sessionId: string = req.query.sessionId as string;
     const socketId: string = req.query.socketId as string;
+    const username: string = req.query?.username as string;
     console.log(`sessionId: ${sessionId}`);
     console.log(`clientId: ${socketId}`);
     if (sessionId) {
@@ -41,12 +42,17 @@ app.post("/session", (req, res) => {
 
     const socket = openSessions.get(socketId);
     if (socket) {
+        if (username) {
+            // @ts-ignore
+            socket["username"] = username;
+        }
         socket.join(sessionId);
         console.log(`Join client to room`);
         io.to(sessionId).emit("pp-info", {sessionId: sessionId});
+        io.to(sessionId).emit("user-joined", {sessionId: sessionId, username: username});
     }
     console.log('return status code');
-    return res.status(200);
+    return res.status(200).send();
 });
 
 io.on("connection", (socket) => {
