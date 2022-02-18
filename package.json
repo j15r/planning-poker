@@ -1,0 +1,37 @@
+{
+  "name": "planning-poker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint . --ext .ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/j15r/advent-of-code-2021.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/j15r/planning-poker/issues"
+  },
+  "homepage": "https://github.com/j15r/planning-poker#readme",
+  "dependencies": {
+    "express": "^4.17.3",
+    "npm": "^8.5.1",
+    "socket.io": "^4.4.1",
+    "typescript": "^4.5.5",
+    "uuid": "^8.3.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.13",
+    "@types/node": "^17.0.18",
+    "@types/uuid": "^8.3.4",
+    "@typescript-eslint/eslint-plugin": "^5.12.0",
+    "@typescript-eslint/parser": "^5.12.0",
+    "eslint": "^8.9.0"
+  }
+}
