@@ -58,14 +58,14 @@ app.post("/session", (req, res) => {
 io.on("connection", (socket) => {
     console.log(`New client connected with socket.id: ${socket.id}`);
     openSessions.set(socket.id, socket);
+
+    socket.on("votings", (votingData: {voting: number, sessionId: string, username: string}) => {
+        console.log(`Received new voting: ${JSON.stringify(votingData)}`);
+        io.sockets.emit('user-voted', votingData);
+    })
+
+    socket.on("join", (socket) => {
+        console.log(`socket.data: ${socket.data.sessionId}`);
+        console.log(`New client connected with socket.id: ${socket.id}`);
+    })
 });
-
-io.on("votings", (socket) => {
-    console.log(`Received new voting: ${socket}`);
-})
-
-io.on("join", (socket) => {
-    console.log(`socket.data: ${socket.data.sessionId}`);
-    console.log(`New client connected with socket.id: ${socket.id}`);
-})
-

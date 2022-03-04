@@ -140,7 +140,7 @@ import axios from "axios";
       console.log(`Vote changed to: ${voting}`);
       this.currentVote = voting;
       if (this.socket) {
-        this.socket.emit("votings", this.currentVote);
+        this.socket.emit("votings", {voting: this.currentVote, username: this.username, sessionId: this.sessionId});
       }
     },
     joinUser() {
