@@ -1,58 +1,145 @@
 <template>
-  <div class="hello">
-    <h1>Planning Poker</h1>
-    <div v-if="!activeSession">
-      <button @click="startSession">
-        Start session
-      </button>
+  <el-row>
+    <el-col :span="24">
+      <h1> Planning Poker </h1>
+    </el-col>
 
-      <input v-model="sessionId" placeholder=""/>
-      <button @click="joinSession(this.sessionId)" :disabled="!sessionId">
-        Join session
-      </button>
-    </div>
+    <el-col v-if="!activeSession" :span="24">
+      <el-row>
+        <el-col :span="6">
+        </el-col>
 
-    <div v-if="!userParticipating && activeSession">
-      <span>Username:</span>
-      <input v-model="username" placeholder=""/>
-      <button @click="joinUser">
-        Join session
-      </button>
-    </div>
+        <el-col :span="12">
+          <div>
+            <div>
+              <el-button @click="startSession">
+                Start session
+              </el-button>
+            </div>
+            <div>
+              <el-input v-model="sessionId" placeholder="Please input"/>
+              <el-button @click="joinSession(this.sessionId)" :disabled="!sessionId">Join session</el-button>
+            </div>
+          </div>
+        </el-col>
 
-    <div v-if="userParticipating">
+        <el-col :span="6">
+        </el-col>
+      </el-row>
+    </el-col>
+
+    <el-col :span="6">
+    </el-col>
+
+    <el-col v-if="!userParticipating && activeSession" :span="12">
+      <div>
+        <h2>Username:</h2>
+        <input v-model="username" placeholder=""/>
+        <el-button @click="joinSession(this.sessionId, true)">
+          Join user
+        </el-button>
+      </div>
+    </el-col>
+
+    <el-col v-if="userParticipating" :span="12">
       <p>Planing Poker Session: {{ this.sessionId }}</p>
       <div>
-      <button @click="clearVotes()">
-        Clear votes
-      </button>
+        <el-button @click="clearVotes()">
+          Clear votes
+        </el-button>
 
-      <button @click="showVotes()">
-        Show votes
-      </button>
+        <el-button @click="showVotes()">
+          Show votes
+        </el-button>
       </div>
 
-      <li v-for="v in votes">
-        <button @click="vote(v)">
-          {{ v }} points
-        </button>
-      </li>
+      <el-row>
+        <el-col :span="6">
+          <el-button @click="vote('0')">
+            0 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('0.5')">
+            0.5 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('1')">
+            1 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('2')">
+            2 points
+          </el-button>
+        </el-col>
+      </el-row>
+
+      <el-row>
+        <el-col :span="6">
+          <el-button @click="vote('3')">
+            3 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('5')">
+            5 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('8')">
+            8 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('13')">
+            13 points
+          </el-button>
+        </el-col>
+      </el-row>
+
+      <el-row>
+        <el-col :span="6">
+          <el-button @click="vote('20')">
+            20 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('40')">
+            40 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('100')">
+            100 points
+          </el-button>
+        </el-col>
+        <el-col :span="6">
+          <el-button @click="vote('?')">
+            ? points
+          </el-button>
+        </el-col>
+      </el-row>
 
       <div>
         <b>User</b>
         <ul>
           <li v-for="user in users">
-            {{ user.name }} - {{ currentVote }}
+            {{ user.username }} - {{ user.currentVote }}
           </li>
         </ul>
       </div>
-    </div>
-  </div>
+    </el-col>
+
+    <el-col :span="6">
+    </el-col>
+  </el-row>
 </template>
 
 <script lang="ts">
 import {Options, Vue} from 'vue-class-component';
-import {io, Socket} from "socket.io-client";
+import {io} from "socket.io-client";
 import axios from "axios";
 
 @Options({
@@ -62,10 +149,10 @@ import axios from "axios";
   data() {
     return {
       users: [],
+      id: "",
       username: "",
       activeSession: false,
       userParticipating: false,
-      votes: ['0', '0.5', '1', '2', '3', '5', '8', '13', '20', '40', '100', '?'],
       sessionId: '',
       currentVote: '',
       socket: null
@@ -79,11 +166,9 @@ import axios from "axios";
       this.socket = io("http://localhost:3000")
 
       this.socket.on("connect", () => {
-        console.log(`Created planning poker session`);
         console.log(`Socket id: ${this.socket.id}`);
 
         // register user or join exiting room
-        let res
         try {
           if (this.sessionId) {
             // join existing room
@@ -103,25 +188,45 @@ import axios from "axios";
               console.error(err);
             });
           }
-
         } catch (err) {
           console.error(err);
         }
       });
 
       this.socket.on("pp-info", (data: any) => {
-        console.log(`Retrieved pp-info message from server`, data.sessionId);
+        console.log(`Retrieved pp-info message from server`, data);
         if (data.sessionId) {
           this.sessionId = data.sessionId;
         }
       });
 
-      this.socket.on("user-joined", (data: any) => {
-        console.log(`Retrieved server message that another user joined`, data);
+      this.socket.on("user-joined", (data: {players: [{sessionId: string, username: string, id: string, currentVote: string}]}) => {
+        console.log(`Retrieved server message that user joined`);
+        console.log(`typeof`, typeof data);
+        console.log(`data`, JSON.stringify(data));
+        console.log(`typeof`, typeof data.players);
+        this.users = [];
+
+        for (const playerData of data.players) {
+          // check when receiving own user object
+          if (playerData.username === this.username) {
+            this.id = playerData.id;
+          }
+
+          this.users.push({id: playerData.id, username: playerData.username, sessionId: playerData.sessionId, currentVote: playerData.currentVote});
+        }
+        console.log('user-joined: this.users', JSON.stringify(this.users));
       });
 
-      this.socket.on("user-voted", (data: any) => {
-        console.log(`Retrieved server message that another user joined`, data);
+      this.socket.on("user-voted", (data: {players: [{sessionId: string, username: string, id: string, currentVote: string}]}) => {
+        console.log(`Retrieved server message that another user voted`, data);
+        console.log(`typeof`, typeof data);
+        this.users = [];
+
+        for (const playerData of data.players) {
+          this.users.push({id: playerData.id, username: playerData.username, sessionId: playerData.sessionId, currentVote: playerData.currentVote});
+        }
+        console.log('user-voted: this.users', JSON.stringify(this.users));
       });
 
       this.socket.on("clear-votes", () => {
@@ -140,17 +245,25 @@ import axios from "axios";
       console.log(`Vote changed to: ${voting}`);
       this.currentVote = voting;
       if (this.socket) {
-        this.socket.emit("votings", {voting: this.currentVote, username: this.username, sessionId: this.sessionId});
+        this.socket.emit("votings", {
+          voting: this.currentVote,
+          username: this.username,
+          sessionId: this.sessionId,
+          id: this.id
+        });
       }
     },
-    joinUser() {
-      this.userParticipating = true;
-      console.log(`User with name ${this.username} joins session`);
-      this.users.push({name: this.username});
-    },
-    joinSession(sessionId: string) {
-      console.log('User joined session');
+    joinSession(sessionId: string, userParticipating?: boolean) {
+      console.log(`Join user to session with sessionId: ${sessionId}, userParticipating: ${userParticipating}`);
       this.startSession(sessionId);
+      if (typeof userParticipating !== "undefined") {
+        this.userParticipating = true;
+        console.log('emit login -------------------------');
+        this.socket.emit("join", {
+          sessionId: sessionId,
+          username: this.username
+        });
+      }
     },
     clearVotes() {
       console.log('clear votes');
@@ -164,23 +277,38 @@ export default class LandingPage extends Vue {
 }
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-h3 {
-  margin: 40px 0 0;
+<style>
+.el-row {
+  margin-bottom: 20px;
 }
 
-ul {
-  list-style-type: none;
-  padding: 0;
+.el-row:last-child {
+  margin-bottom: 0;
 }
 
-li {
-  display: inline-block;
-  margin: 0 10px;
+.el-col {
+  border-radius: 4px;
 }
 
-a {
-  color: #42b983;
+.bg-purple-dark {
+  background: #99a9bf;
+}
+
+.bg-purple {
+  background: #d3dce6;
+}
+
+.bg-purple-light {
+  background: #e5e9f2;
+}
+
+.grid-content {
+  border-radius: 4px;
+  min-height: 36px;
+}
+
+.row-bg {
+  padding: 10px 0;
+  background-color: #f9fafc;
 }
 </style>
