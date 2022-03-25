@@ -18,7 +18,7 @@
             </div>
             <div>
               <el-input v-model="sessionId" placeholder="Please input"/>
-              <el-button @click="joinSession(this.sessionId)" :disabled="!sessionId">Join session</el-button>
+              <el-button @click="joinSession(this.sessionId)" :disabled="!isValidUuid()">Join session</el-button>
             </div>
           </div>
         </el-col>
@@ -51,6 +51,10 @@
         <el-button @click="showVotes()">
           Show votes
         </el-button>
+      </div>
+
+      <div>
+        <p>final vote: {{ finalVote }}</p>
       </div>
 
       <el-row>
@@ -122,14 +126,20 @@
         </el-col>
       </el-row>
 
-      <div>
-        <b>User</b>
-        <ul>
-          <li v-for="user in users">
-            {{ user.username }} - {{ user.currentVote }}
-          </li>
-        </ul>
-      </div>
+      <el-scrollbar>
+        <div v-for="user in users" :key="user" class="scrollbar-demo-item">
+          <el-container class="justify-content: space-between;">
+            <el-row>
+              <el-col>
+                <div class="display: inline-block;">
+                  <p>{{ user.username }}</p>
+                  <p v-if="showResults">{{ user.currentVote }}</p>
+                </div>
+              </el-col>
+            </el-row>
+          </el-container>
+        </div>
+      </el-scrollbar>
     </el-col>
 
     <el-col :span="6">
@@ -151,16 +161,18 @@ import axios from "axios";
       users: [],
       id: "",
       username: "",
+      showResults: false,
       activeSession: false,
       userParticipating: false,
       sessionId: '',
       currentVote: '',
+      finalVote: 0,
       socket: null
     }
   },
   methods: {
     // todo: leave session on window close
-    startSession() {
+    startSession(): void {
       console.log('Starting new session for user');
 
       this.socket = io("http://localhost:3000")
@@ -173,16 +185,14 @@ import axios from "axios";
           if (this.sessionId) {
             // join existing room
             console.log(`Join existing session: ${this.sessionId}`)
-            axios.post(`http://localhost:3000/session?sessionId=${this.sessionId}&socketId=${this.socket.id}&username=${this.username}`).then((response) => {
-              console.log('set activeSession to true', response);
+            axios.post(`http://localhost:3000/session?sessionId=${this.sessionId}&socketId=${this.socket.id}&username=${this.username}`).then(() => {
               this.activeSession = true;
             }).catch((err) => {
               console.log(err);
             });
           } else {
             console.log(`Create new session`);
-            axios.post(`http://localhost:3000/session?socketId=${this.socket.id}`).then((response) => {
-              console.log('set activeSession to true', response);
+            axios.post(`http://localhost:3000/session?socketId=${this.socket.id}`).then(() => {
               this.activeSession = true;
             }).catch((err) => {
               console.error(err);
@@ -200,11 +210,8 @@ import axios from "axios";
         }
       });
 
-      this.socket.on("user-joined", (data: {players: [{sessionId: string, username: string, id: string, currentVote: string}]}) => {
+      this.socket.on("user-joined", (data: { players: [{ sessionId: string, username: string, id: string, currentVote: string }] }) => {
         console.log(`Retrieved server message that user joined`);
-        console.log(`typeof`, typeof data);
-        console.log(`data`, JSON.stringify(data));
-        console.log(`typeof`, typeof data.players);
         this.users = [];
 
         for (const playerData of data.players) {
@@ -213,28 +220,47 @@ import axios from "axios";
             this.id = playerData.id;
           }
 
-          this.users.push({id: playerData.id, username: playerData.username, sessionId: playerData.sessionId, currentVote: playerData.currentVote});
+          this.users.push({
+            id: playerData.id,
+            username: playerData.username,
+            sessionId: playerData.sessionId,
+            currentVote: playerData.currentVote
+          });
         }
         console.log('user-joined: this.users', JSON.stringify(this.users));
       });
 
-      this.socket.on("user-voted", (data: {players: [{sessionId: string, username: string, id: string, currentVote: string}]}) => {
+      this.socket.on("user-voted", (data: { players: [{ sessionId: string, username: string, id: string, currentVote: string }] }) => {
         console.log(`Retrieved server message that another user voted`, data);
-        console.log(`typeof`, typeof data);
         this.users = [];
-
         for (const playerData of data.players) {
-          this.users.push({id: playerData.id, username: playerData.username, sessionId: playerData.sessionId, currentVote: playerData.currentVote});
+          this.users.push({
+            id: playerData.id,
+            username: playerData.username,
+            sessionId: playerData.sessionId,
+            currentVote: playerData.currentVote
+          });
         }
-        console.log('user-voted: this.users', JSON.stringify(this.users));
       });
 
-      this.socket.on("clear-votes", () => {
+      this.socket.on("clear-votes", (data: [{ sessionId: string, username: string, id: string, currentVote: string }]) => {
         console.log(`Retrieved server message to clear votes`);
+        this.showResults = false;
+        this.users = [];
+        for (const playerData of data) {
+          this.users.push({
+            id: playerData.id,
+            username: playerData.username,
+            sessionId: playerData.sessionId,
+            currentVote: playerData.currentVote
+          });
+        }
       });
 
       this.socket.on("show-votes", (data: any) => {
-        console.log(`Retrieved server message to clear votes`);
+        console.log(`Retrieved server message to show votes: ${JSON.stringify(data)}`);
+        this.showResults = true;
+        this.finalVote = data;
       });
 
       this.socket.on("disconnect", () => {
@@ -258,7 +284,6 @@ import axios from "axios";
       this.startSession(sessionId);
       if (typeof userParticipating !== "undefined") {
         this.userParticipating = true;
-        console.log('emit login -------------------------');
         this.socket.emit("join", {
           sessionId: sessionId,
           username: this.username
@@ -266,10 +291,21 @@ import axios from "axios";
       }
     },
     clearVotes() {
-      console.log('clear votes');
+      this.socket.emit("clear-votes", {
+        sessionId: this.sessionId,
+        username: this.username
+      });
     },
     showVotes() {
-      console.log('show votes');
+      this.socket.emit("show-votes", {
+        sessionId: this.sessionId,
+        username: this.username
+      });
+    },
+    isValidUuid(): boolean {
+      const regexExp = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/gi;
+      console.log('check sessionid:', this.sessionId, 'valid?:', regexExp.test(this.sessionId));
+      return regexExp.test(this.sessionId);
     }
   }
 })
@@ -277,38 +313,16 @@ export default class LandingPage extends Vue {
 }
 </script>
 
-<style>
-.el-row {
-  margin-bottom: 20px;
-}
-
-.el-row:last-child {
-  margin-bottom: 0;
-}
-
-.el-col {
+<style scoped>
+.scrollbar-demo-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  margin: 10px;
+  text-align: center;
   border-radius: 4px;
-}
-
-.bg-purple-dark {
-  background: #99a9bf;
-}
-
-.bg-purple {
-  background: #d3dce6;
-}
-
-.bg-purple-light {
-  background: #e5e9f2;
-}
-
-.grid-content {
-  border-radius: 4px;
-  min-height: 36px;
-}
-
-.row-bg {
-  padding: 10px 0;
-  background-color: #f9fafc;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
 }
 </style>
